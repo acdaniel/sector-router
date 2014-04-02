@@ -1,0 +1,39 @@
+{
+  "name": "sector-router",
+  "version": "0.1.0",
+  "description": "A router and utilities for the Sector library",
+  "main": "lib/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/acdaniel/sector-router.git"
+  },
+  "keywords": [
+    "pub/sub",
+    "component",
+    "ui",
+    "browser",
+    "javascript",
+    "router"
+  ],
+  "author": "Adam Daniel <adam@acdaniel.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/acdaniel/sector-router/issues"
+  },
+  "homepage": "https://github.com/acdaniel/sector-router",
+  "devDependencies": {
+    "gulp": "^3.5.6",
+    "gulp-uglify": "^0.2.1",
+    "gulp-rename": "^1.2.0",
+    "browserify": "^3.32.1",
+    "gulp-browserify": "^0.5.0",
+    "gulp-header": "^1.0.2",
+    "gulp-rimraf": "0.0.9"
+  },
+  "dependencies": {
+    "sector": "^0.1.7"
+  }
+}
