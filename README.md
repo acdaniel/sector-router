@@ -1,29 +1,24 @@
-Sector.js
+Sector - Router
 ======
 
-Sector is a lightweight Javascript library for creating modular, easily maintainable, and scalable browser based applications.
-
-Similiar to [Flight.js](http://flightjs.github.io/) in theory but different in structure. In fact, the project started off as an experiment/exercise with component based publish/subscribe UI development after stumbling on Flight.js.
-
-*Development is still very early. Things will likely change in the future*
+Sector - Router is an extension for the [Sector.js](http://github.com/acdaniel/sector) library
+that adds a router component and mixins to support route aware components.
 
 Installation
 ------------
 Sector can be easliy installed with [Bower](http://bower.io):
 
-    > bower install sector
+    > bower install sector-router
 
 or through [npm](http://nmpjs.org):
 
-    > npm install sector
+    > npm install sector-router
 
 Sector supports standalone, AMD, and Node/CommonJS deployment with [Browserify](http://browserify.org).
 
 To use as a standard standalone script:
 
-    <script src="bower_components/sector/dist/sector.js"></script>
-
-Sector doesn't have any external dependencies but if you are already using [lodash](http://lodash.com/) in your project, you can save a few KBs by using the *slim* version of Sector located in the dist directory.
+    <script src="bower_components/sector-router/dist/sector-router.js"></script>
 
 Browser Support
 ---------------
@@ -31,6 +26,6 @@ Chrome, Safari, Firefox, Opera, IE 9+
 
 Usage
 -----
-For the time being, take a look at the included [examples](./examples) to see how simple Sector is to use.
+Take a look at the included [examples](./examples) to see how to use.
 
-A [TodoMVC](http://todomvc.com) example is also available at [todomvc-sector](http://github.com/acdaniel/todomvc-sector).
+A [TodoMVC](http://todomvc.com) example is also available at [todomvc-sector](http://github.com/acdaniel/todomvc-sector) that leverages the sector-router.js.
