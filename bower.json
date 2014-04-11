@@ -31,6 +31,6 @@
     "gulpfile.js"
   ],
   "dependencies": {
-    "sector": "~0.1.7"
+    "sector": "~0.1.14"
   }
 }
