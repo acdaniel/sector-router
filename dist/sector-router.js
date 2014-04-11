@@ -1,12 +1,12 @@
 /**
- * sector-router v0.1.2
+ * sector-router v0.1.3
  * A router and utilities for the Sector library
  * https://github.com/acdaniel/sector-router
  *
  * Copyright 2014 Adam Daniel <adam@acdaniel.com>
  * Released under the MIT license
  *
- * Date: 2014-04-08T04:05:49.552Z
+ * Date: 2014-04-11T06:28:41.523Z
  */
 !function(e){if("object"==typeof exports)module.exports=e();else if("function"==typeof define&&define.amd)define(e);else{var o;"undefined"!=typeof window?o=window:"undefined"!=typeof global?o=global:"undefined"!=typeof self&&(o=self);var f=o;f=f.sector||(f.sector={}),f=f.ext||(f.ext={}),f.router=e()}}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(_dereq_,module,exports){
 var sector; try { sector = _dereq_('sector'); } catch (e) { sector = window.sector; }
@@ -101,7 +101,7 @@ module.exports = sector.Component.define({
         return {
           name: name,
           path: fragment,
-          params: sector.utils.map(params, function(param, i) {
+          params: sector.map(params, function(param, i) {
             // Don't decode the search params.
             if (i === params.length - 1) { return param || null; }
             return param ? decodeURIComponent(param) : null;
@@ -160,10 +160,9 @@ exports.components = {
 };
 },{"./components/route-content":1,"./components/route-nav":2,"./components/router":3,"./mixins/route-content":5,"./mixins/route-nav":6}],5:[function(_dereq_,module,exports){
 var sector; try { sector = _dereq_('sector'); } catch (e) { sector = window.sector; }
-var utils = sector.utils;
 
 module.exports =  function () {
-  this.defaults = utils.defaults({}, this.defaults, {
+  this.defaults = sector.defaults({}, this.defaults, {
     route: null,
     activeClassName: 'active',
     routeChangedTopic: 'ui.routeChanged'
@@ -172,19 +171,18 @@ module.exports =  function () {
   this.after('initialize', function () {
     this.subscribe(this.routeChangedTopic, function (msg) {
       if (this.route === msg.data.path) {
-        utils.addClassName(this.el, this.activeClassName);
+        sector.addClassName(this.el, this.activeClassName);
       } else {
-        utils.removeClassName(this.el, this.activeClassName);
+        sector.removeClassName(this.el, this.activeClassName);
       }
     });
   });
 };
 },{}],6:[function(_dereq_,module,exports){
 var sector; try { sector = _dereq_('sector'); } catch (e) { sector = window.sector; }
-var utils = sector.utils;
 
 module.exports =  function () {
-  this.defaults = utils.defaults({}, this.defaults, {
+  this.defaults = sector.defaults({}, this.defaults, {
     activeClassName: 'active',
     linkSelector: 'a[href]',
     routeChangedTopic: 'ui.routeChanged'
@@ -196,9 +194,9 @@ module.exports =  function () {
       for (var i = 0, l = nodes.length; i < l; i++) {
         node = nodes[i];
         if (node.getAttribute('href').toString() === '#' + msg.data.path) {
-          utils.addClassName(node, this.activeClassName);
+          sector.addClassName(node, this.activeClassName);
         } else {
-          utils.removeClassName(node, this.activeClassName);
+          sector.removeClassName(node, this.activeClassName);
         }
       }
     });
