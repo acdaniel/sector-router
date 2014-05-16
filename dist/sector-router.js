@@ -1,12 +1,12 @@
 /**
- * sector-router v0.1.4
+ * sector-router v0.1.5
  * A router and utilities for the Sector library
  * https://github.com/acdaniel/sector-router
  *
  * Copyright 2014 Adam Daniel <adam@acdaniel.com>
  * Released under the MIT license
  *
- * Date: 2014-05-11T02:21:50.181Z
+ * Date: 2014-05-16T20:30:32.555Z
  */
 !function(e){if("object"==typeof exports)module.exports=e();else if("function"==typeof define&&define.amd)define(e);else{var o;"undefined"!=typeof window?o=window:"undefined"!=typeof global?o=global:"undefined"!=typeof self&&(o=self);var f=o;f=f.sector||(f.sector={}),f=f.ext||(f.ext={}),f.router=e()}}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(_dereq_,module,exports){
 var sector; try { sector = _dereq_('sector'); } catch (e) { sector = window.sector; }
@@ -20,8 +20,9 @@ var sector; try { sector = _dereq_('sector'); } catch (e) { sector = window.sect
 var RouteNavMixin = _dereq_('../mixins/route-nav');
 
 module.exports = sector.Component.define({
-  type: 'route-content'
+  type: 'route-nav'
 }, sector.mixins.View, RouteNavMixin);
+
 },{"../mixins/route-nav":6}],3:[function(_dereq_,module,exports){
 /*
  * inspiration and some code borrowed from
