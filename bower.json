@@ -1,6 +1,6 @@
 {
   "name": "sector-router",
-  "version": "0.1.6",
+  "version": "0.2.0",
   "homepage": "https://github.com/acdaniel/sector-router",
   "authors": [
     "Adam Daniel <adam@acdaniel.com>"
@@ -31,6 +31,6 @@
     "gulpfile.js"
   ],
   "dependencies": {
-    "sector": "~0.2.0"
+    "sector": "~0.3.0"
   }
 }

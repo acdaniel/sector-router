@@ -1,62 +1,32 @@
 /**
- * sector-router v0.1.6
+ * sector-router v0.2.0
  * A router and utilities for the Sector library
  * https://github.com/acdaniel/sector-router
  *
  * Copyright 2014 Adam Daniel <adam@acdaniel.com>
  * Released under the MIT license
  *
- * Date: 2014-05-17T03:49:29.492Z
+ * Date: 2014-06-04T02:24:32.040Z
  */
 !function(e){if("object"==typeof exports)module.exports=e();else if("function"==typeof define&&define.amd)define(e);else{var o;"undefined"!=typeof window?o=window:"undefined"!=typeof global?o=global:"undefined"!=typeof self&&(o=self);var f=o;f=f.sector||(f.sector={}),f=f.ext||(f.ext={}),f.router=e()}}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(_dereq_,module,exports){
 var sector; try { sector = _dereq_('sector'); } catch (e) { sector = window.sector; }
-var RouteContentMixin = _dereq_('../mixins/route-content');
-
-module.exports = sector.Component.define({
-  type: 'route-content'
-}, sector.mixins.View, RouteContentMixin);
-},{"../mixins/route-content":5}],2:[function(_dereq_,module,exports){
-var sector; try { sector = _dereq_('sector'); } catch (e) { sector = window.sector; }
-var RouteNavMixin = _dereq_('../mixins/route-nav');
-
-module.exports = sector.Component.define({
-  type: 'route-nav'
-}, sector.mixins.View, RouteNavMixin);
-
-},{"../mixins/route-nav":6}],3:[function(_dereq_,module,exports){
-/*
- * inspiration and some code borrowed from
- * http://krasimirtsonev.com/blog/article/A-modern-JavaScript-router-in-100-lines-history-api-pushState-hash-url
- * and from Backbone.Router https://github.com/jashkenas/backbone
- */
-var sector; try { sector = _dereq_('sector'); } catch (e) { sector = window.sector; }
-
-var optionalParam = /\((.*?)\)/g;
-var namedParam    = /(\(\?)?:\w+/g;
-var splatParam    = /\*\w+/g;
-var escapeRegExp  = /[\-{}\[\]+?.,\\\^$|#\s]/g;
+var pathToRegexp = _dereq_('path-to-regexp');
+var zipObject = _dereq_('lodash-node/modern/arrays/zipObject');
 
 module.exports = sector.Component.define({
   type: 'router',
   defaults: {
-    mode: 'hash',
-    root: '/',
-    routeTopic: 'ui.routeChanged',
     backRequestTopic: 'ui.navigateBackRequested',
     forwardRequestTopic: 'ui.navigateForwardRequested',
     navigateRequestTopic: 'ui.navigateRequested',
     uiReadyTopic: 'ui.ready',
-    defaultRoute: 'home'
+    routeChangedTopic: 'ui.routeChanged'
   },
   initialize: function (options) {
-    if (!history.pushState) { this.mode = 'hash'; }
-    if (this.root !== '/') {
-      this.root = '/' + this.clearSlashes(options.root) + '/';
-    }
-    this.routes = {};
+    this.routes = [];
     if (options.routes) {
-      for (var name in options.routes) {
-        this.addRoute(name, options.routes[name]);
+      for (var path in options.routes) {
+        this.addRoute(path, options.routes[path]);
       }
     }
     this.subscribe(this.navigateRequestTopic, this.handleNavigateRequest);
@@ -64,153 +34,263 @@ module.exports = sector.Component.define({
     this.subscribe(this.forwardRequestTopic, this.handleForwardRequest);
     this.listenTo(window, 'hashchange', this.handleHashChange);
     this.subscribe(this.uiReadyTopic, function () {
-      var msg = this.parseFragment(this.getFragment());
-      this.publish(this.routeTopic, msg);
+      this.handleHashChange();
     });
   },
-  addRoute: function (name, route) {
-    route = route.replace(escapeRegExp, '\\$&')
-      .replace(optionalParam, '(?:$1)?')
-      .replace(namedParam, function(match, optional) {
-        return optional ? match : '([^/?]+)';
-      })
-      .replace(splatParam, '([^?]*?)');
-    var regex = new RegExp('^' + route + '(?:\\?([\\s\\S]*))?$');
-    this.trace('adding named route: ' + name, regex);
-    this.routes[name] = regex;
+  addRoute: function (route, topic) {
+    this.trace('adding named route: ' + topic, route);
+    var keys = [];
+    var re = pathToRegexp(route, keys);
+    this.routes.push({ topic: topic, re: re, keys: keys });
   },
   getFragment: function () {
     var fragment = '', match;
-    if (this.mode === 'history') {
-      fragment = this.clearSlashes(decodeURI(location.pathname + location.search));
-      fragment = fragment.replace(/\?(.*)$/, '');
-      fragment = this.root !== '/' ? fragment.replace(this.root, '') : fragment;
-    } else {
-      match = window.location.href.match(/#(.*)$/);
-      fragment = match ? match[1] : '';
-    }
+    match = window.location.href.match(/#(.*)$/);
+    fragment = match ? match[1] : '';
     return fragment;
   },
-  parseFragment: function (fragment) {
+  lookupRoute: function (fragment) {
     fragment = fragment || '/';
     this.trace('parsing fragment ' + fragment);
-    for (var name in this.routes) {
-      var route = this.routes[name];
-      this.trace('eval route ' + name, route);
-      var params = route.exec(fragment);
-      if (params) {
-        params = params.slice(1);
+    var mapKeyName = function (key) {
+      return key.name;
+    };
+    for (var i = 0, l = this.routes.length; i < l; i++) {
+      var route = this.routes[i];
+      this.trace('eval route', route);
+      var isMatch = route.re.test(fragment);
+      if (isMatch) {
+        var results = route.re.exec(fragment);
+        this.trace('route selected', results);
+        var keyNames = route.keys.map(mapKeyName);
         return {
-          name: name,
-          path: fragment,
-          params: sector.map(params, function(param, i) {
-            // Don't decode the search params.
-            if (i === params.length - 1) { return param || null; }
-            return param ? decodeURIComponent(param) : null;
-          })
+          topic: route.topic,
+          data: zipObject(keyNames, results.slice(1))
         };
       }
     }
-    return {
-      name: this.defaultRoute,
-      path: fragment,
-      params: []
-    };
-  },
-  clearSlashes: function(path) {
-    return path.toString().replace(/\/$/, '').replace(/^\//, '');
   },
   handleHashChange: function () {
-    var fragment, msg;
+    var fragment, route;
     fragment = this.getFragment();
-    msg = this.parseFragment(fragment);
-    this.publish(this.routeTopic, msg);
+    this.publish(this.routeChangedTopic, { path: fragment || '/' });
+    route = this.lookupRoute(fragment);
+    if (route) {
+      this.publish(route.topic, route.data);
+    }
   },
   handleNavigateRequest: function (msg) {
-    var path = msg.data ? msg.data : '';
-    if(this.mode === 'history') {
-      history.pushState(null, null, this.root + this.clearSlashes(path));
-    } else {
-      window.location.href.match(/#(.*)$/);
-      window.location.href = window.location.href.replace(/#(.*)$/, '') + '#' + path;
-    }
-    var outMsg = this.parseFragment(path);
-    this.publish(this.routeTopic, outMsg);
+    var path = msg.data ? msg.data : '/';
+    window.location.href = window.location.href.replace(/#(.*)$/, '') + '#' + path;
   },
   handleBackRequest: function () {
-    var fragment, msg;
     window.history.back();
-    fragment = this.getFragment();
-    msg = this.parseFragment(fragment);
-    this.publish(this.routeTopic, msg);
   },
   handleForwardRequest: function () {
-    var fragment, msg;
     window.history.forward();
-    fragment = this.getFragment();
-    msg = this.parseFragment(fragment);
-    this.publish(this.routeTopic, msg);
   }
 });
 
-},{}],4:[function(_dereq_,module,exports){
+},{"lodash-node/modern/arrays/zipObject":3,"path-to-regexp":6}],2:[function(_dereq_,module,exports){
 
 exports.mixins = {
-  RouteContent: _dereq_('./mixins/route-content'),
-  RouteNav: _dereq_('./mixins/route-nav')
 };
 
 exports.components = {
-  Router: _dereq_('./components/router'),
-  RouteContent: _dereq_('./components/route-content'),
-  RouterNav: _dereq_('./components/route-nav')
-};
-},{"./components/route-content":1,"./components/route-nav":2,"./components/router":3,"./mixins/route-content":5,"./mixins/route-nav":6}],5:[function(_dereq_,module,exports){
-var sector; try { sector = _dereq_('sector'); } catch (e) { sector = window.sector; }
-
-module.exports =  function () {
-  this.defaults = sector.defaults({}, this.defaults, {
-    route: null,
-    activeClassName: 'active',
-    routeChangedTopic: 'ui.routeChanged'
-  });
-
-  this.after('initialize', function () {
-    this.subscribe(this.routeChangedTopic, function (msg) {
-      if (this.route === msg.data.name) {
-        sector.addClassName(this.el, this.activeClassName);
-      } else {
-        sector.removeClassName(this.el, this.activeClassName);
-      }
-    });
-  });
+  Router: _dereq_('./components/router')
 };
 
-},{}],6:[function(_dereq_,module,exports){
-var sector; try { sector = _dereq_('sector'); } catch (e) { sector = window.sector; }
+},{"./components/router":1}],3:[function(_dereq_,module,exports){
+/**
+ * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
+ * Build: `lodash modularize modern exports="node" -o ./modern/`
+ * Copyright 2012-2013 The Dojo Foundation <http://dojofoundation.org/>
+ * Based on Underscore.js 1.5.2 <http://underscorejs.org/LICENSE>
+ * Copyright 2009-2013 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
+ * Available under MIT license <http://lodash.com/license>
+ */
+var isArray = _dereq_('../objects/isArray');
 
-module.exports =  function () {
-  this.defaults = sector.defaults({}, this.defaults, {
-    activeClassName: 'active',
-    linkSelector: 'a[href]',
-    routeChangedTopic: 'ui.routeChanged'
-  });
+/**
+ * Creates an object composed from arrays of `keys` and `values`. Provide
+ * either a single two dimensional array, i.e. `[[key1, value1], [key2, value2]]`
+ * or two arrays, one of `keys` and one of corresponding `values`.
+ *
+ * @static
+ * @memberOf _
+ * @alias object
+ * @category Arrays
+ * @param {Array} keys The array of keys.
+ * @param {Array} [values=[]] The array of values.
+ * @returns {Object} Returns an object composed of the given keys and
+ *  corresponding values.
+ * @example
+ *
+ * _.zipObject(['fred', 'barney'], [30, 40]);
+ * // => { 'fred': 30, 'barney': 40 }
+ */
+function zipObject(keys, values) {
+  var index = -1,
+      length = keys ? keys.length : 0,
+      result = {};
 
-  this.after('initialize', function () {
-    this.subscribe(this.routeChangedTopic, function (msg) {
-      var node, nodes = [].slice.call(this.selectAll(this.linkSelector));
-      for (var i = 0, l = nodes.length; i < l; i++) {
-        node = nodes[i];
-        if (node.getAttribute('href').toString() === '#' + msg.data.path) {
-          sector.addClassName(node, this.activeClassName);
-        } else {
-          sector.removeClassName(node, this.activeClassName);
-        }
-      }
-    });
-  });
+  if (!values && length && !isArray(keys[0])) {
+    values = [];
+  }
+  while (++index < length) {
+    var key = keys[index];
+    if (values) {
+      result[key] = values[index];
+    } else if (key) {
+      result[key[0]] = key[1];
+    }
+  }
+  return result;
+}
+
+module.exports = zipObject;
+
+},{"../objects/isArray":5}],4:[function(_dereq_,module,exports){
+/**
+ * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
+ * Build: `lodash modularize modern exports="node" -o ./modern/`
+ * Copyright 2012-2013 The Dojo Foundation <http://dojofoundation.org/>
+ * Based on Underscore.js 1.5.2 <http://underscorejs.org/LICENSE>
+ * Copyright 2009-2013 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
+ * Available under MIT license <http://lodash.com/license>
+ */
+
+/** Used for native method references */
+var objectProto = Object.prototype;
+
+/** Used to resolve the internal [[Class]] of values */
+var toString = objectProto.toString;
+
+/** Used to detect if a method is native */
+var reNative = RegExp('^' +
+  String(toString)
+    .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    .replace(/toString| for [^\]]+/g, '.*?') + '$'
+);
+
+/**
+ * Checks if `value` is a native function.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if the `value` is a native function, else `false`.
+ */
+function isNative(value) {
+  return typeof value == 'function' && reNative.test(value);
+}
+
+module.exports = isNative;
+
+},{}],5:[function(_dereq_,module,exports){
+/**
+ * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
+ * Build: `lodash modularize modern exports="node" -o ./modern/`
+ * Copyright 2012-2013 The Dojo Foundation <http://dojofoundation.org/>
+ * Based on Underscore.js 1.5.2 <http://underscorejs.org/LICENSE>
+ * Copyright 2009-2013 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
+ * Available under MIT license <http://lodash.com/license>
+ */
+var isNative = _dereq_('../internals/isNative');
+
+/** `Object#toString` result shortcuts */
+var arrayClass = '[object Array]';
+
+/** Used for native method references */
+var objectProto = Object.prototype;
+
+/** Used to resolve the internal [[Class]] of values */
+var toString = objectProto.toString;
+
+/* Native method shortcuts for methods with the same name as other `lodash` methods */
+var nativeIsArray = isNative(nativeIsArray = Array.isArray) && nativeIsArray;
+
+/**
+ * Checks if `value` is an array.
+ *
+ * @static
+ * @memberOf _
+ * @type Function
+ * @category Objects
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if the `value` is an array, else `false`.
+ * @example
+ *
+ * (function() { return _.isArray(arguments); })();
+ * // => false
+ *
+ * _.isArray([1, 2, 3]);
+ * // => true
+ */
+var isArray = nativeIsArray || function(value) {
+  return value && typeof value == 'object' && typeof value.length == 'number' &&
+    toString.call(value) == arrayClass || false;
 };
 
-},{}]},{},[4])
-(4)
+module.exports = isArray;
+
+},{"../internals/isNative":4}],6:[function(_dereq_,module,exports){
+/**
+ * Expose `pathtoRegexp`.
+ */
+
+module.exports = pathtoRegexp;
+
+/**
+ * Normalize the given path string,
+ * returning a regular expression.
+ *
+ * An empty array should be passed,
+ * which will contain the placeholder
+ * key names. For example "/user/:id" will
+ * then contain ["id"].
+ *
+ * @param  {String|RegExp|Array} path
+ * @param  {Array} keys
+ * @param  {Object} options
+ * @return {RegExp}
+ * @api private
+ */
+
+function pathtoRegexp(path, keys, options) {
+  options = options || {};
+  var sensitive = options.sensitive;
+  var strict = options.strict;
+  var end = options.end !== false;
+  keys = keys || [];
+
+  if (path instanceof RegExp) return path;
+  if (path instanceof Array) path = '(' + path.join('|') + ')';
+
+  path = path
+    .concat(strict ? '' : '/?')
+    .replace(/\/\(/g, '/(?:')
+    .replace(/([\/\.])/g, '\\$1')
+    .replace(/(\\\/)?(\\\.)?:(\w+)(\(.*?\))?(\*)?(\?)?/g, function (match, slash, format, key, capture, star, optional) {
+      slash = slash || '';
+      format = format || '';
+      capture = capture || '([^/' + format + ']+?)';
+      optional = optional || '';
+
+      keys.push({ name: key, optional: !!optional });
+
+      return ''
+        + (optional ? '' : slash)
+        + '(?:'
+        + format + (optional ? slash : '') + capture
+        + (star ? '((?:[\\/' + format + '].+?)?)' : '')
+        + ')'
+        + optional;
+    })
+    .replace(/\*/g, '(.*)');
+
+  return new RegExp('^' + path + (end ? '$' : '(?=\/|$)'), sensitive ? '' : 'i');
+};
+
+},{}]},{},[2])
+(2)
 });
