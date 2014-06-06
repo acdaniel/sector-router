@@ -1,12 +1,12 @@
 /**
- * sector-router v0.2.0
+ * sector-router v0.2.1
  * A router and utilities for the Sector library
  * https://github.com/acdaniel/sector-router
  *
  * Copyright 2014 Adam Daniel <adam@acdaniel.com>
  * Released under the MIT license
  *
- * Date: 2014-06-04T02:24:32.040Z
+ * Date: 2014-06-06T01:57:38.759Z
  */
 !function(e){if("object"==typeof exports)module.exports=e();else if("function"==typeof define&&define.amd)define(e);else{var o;"undefined"!=typeof window?o=window:"undefined"!=typeof global?o=global:"undefined"!=typeof self&&(o=self);var f=o;f=f.sector||(f.sector={}),f=f.ext||(f.ext={}),f.router=e()}}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(_dereq_,module,exports){
 var sector; try { sector = _dereq_('sector'); } catch (e) { sector = window.sector; }
@@ -19,11 +19,15 @@ module.exports = sector.Component.define({
     backRequestTopic: 'ui.navigateBackRequested',
     forwardRequestTopic: 'ui.navigateForwardRequested',
     navigateRequestTopic: 'ui.navigateRequested',
+    protectRouteRequestTopic: 'ui.protectRouteRequested',
     uiReadyTopic: 'ui.ready',
-    routeChangedTopic: 'ui.routeChanged'
+    routeChangedTopic: 'ui.routeChanged',
+    confirmRouteChangeRequestTopic: 'ui.confirmRouteChangeRequested',
+    routeChangeConfirmedTopic: 'ui.routeChangeConfirmed'
   },
   initialize: function (options) {
     this.routes = [];
+    this.protectedRouteFragment = null;
     if (options.routes) {
       for (var path in options.routes) {
         this.addRoute(path, options.routes[path]);
@@ -32,6 +36,8 @@ module.exports = sector.Component.define({
     this.subscribe(this.navigateRequestTopic, this.handleNavigateRequest);
     this.subscribe(this.backRequestTopic, this.handleBackRequest);
     this.subscribe(this.forwardRequestTopic, this.handleForwardRequest);
+    this.subscribe(this.protectRouteRequestTopic, this.handleProtectRouteRequest);
+    this.subscribe(this.routeChangeConfirmedTopic, this.handleRouteChangeConfirmed);
     this.listenTo(window, 'hashchange', this.handleHashChange);
     this.subscribe(this.uiReadyTopic, function () {
       this.handleHashChange();
@@ -73,10 +79,15 @@ module.exports = sector.Component.define({
   handleHashChange: function () {
     var fragment, route;
     fragment = this.getFragment();
-    this.publish(this.routeChangedTopic, { path: fragment || '/' });
-    route = this.lookupRoute(fragment);
-    if (route) {
-      this.publish(route.topic, route.data);
+    if (this.protectedRouteFragment && fragment !== this.protectedRouteFragment) {
+      this.publish(this.confirmRouteChangeRequestTopic, { currentRoute: this.protectedRouteFragment, attemptedRoute: fragment });
+      event.preventDefault();
+    } else {
+      this.publish(this.routeChangedTopic, { path: fragment || '/' });
+      route = this.lookupRoute(fragment);
+      if (route) {
+        this.publish(route.topic, route.data);
+      }
     }
   },
   handleNavigateRequest: function (msg) {
@@ -88,6 +99,15 @@ module.exports = sector.Component.define({
   },
   handleForwardRequest: function () {
     window.history.forward();
+  },
+  handleProtectRouteRequest: function (msg) {
+    var protect = msg.data !== false ? true : false;
+    this.protectedRouteFragment = protect ? this.getFragment() : null;
+  },
+  handleRouteChangeConfirmed: function (msg) {
+    this.protectedRouteFragment = null;
+    window.location.href = window.location.href.replace(/#(.*)$/, '') + '#' + msg.data.route;
+    this.handleHashChange();
   }
 });
 
