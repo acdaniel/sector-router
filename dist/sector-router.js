@@ -1,12 +1,12 @@
 /**
- * sector-router v0.2.1
+ * sector-router v0.3.0
  * A router and utilities for the Sector library
  * https://github.com/acdaniel/sector-router
  *
  * Copyright 2014 Adam Daniel <adam@acdaniel.com>
  * Released under the MIT license
  *
- * Date: 2014-06-06T01:57:38.759Z
+ * Date: 2014-07-02T21:09:11.673Z
  */
 !function(e){if("object"==typeof exports)module.exports=e();else if("function"==typeof define&&define.amd)define(e);else{var o;"undefined"!=typeof window?o=window:"undefined"!=typeof global?o=global:"undefined"!=typeof self&&(o=self);var f=o;f=f.sector||(f.sector={}),f=f.ext||(f.ext={}),f.router=e()}}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(_dereq_,module,exports){
 var sector; try { sector = _dereq_('sector'); } catch (e) { sector = window.sector; }
@@ -16,10 +16,10 @@ var zipObject = _dereq_('lodash-node/modern/arrays/zipObject');
 module.exports = sector.Component.define({
   type: 'router',
   defaults: {
-    backRequestTopic: 'ui.navigateBackRequested',
-    forwardRequestTopic: 'ui.navigateForwardRequested',
     navigateRequestTopic: 'ui.navigateRequested',
     protectRouteRequestTopic: 'ui.protectRouteRequested',
+    reloadRouteRequestTopic: 'ui.reloadRouteRequested',
+    pushHistoryRequestTopic: 'ui.pushHistoryRequested',
     uiReadyTopic: 'ui.ready',
     routeChangedTopic: 'ui.routeChanged',
     confirmRouteChangeRequestTopic: 'ui.confirmRouteChangeRequested',
@@ -27,6 +27,8 @@ module.exports = sector.Component.define({
   },
   initialize: function (options) {
     this.routes = [];
+    this.history = [];
+    this.historyIndex = 0;
     this.protectedRouteFragment = null;
     if (options.routes) {
       for (var path in options.routes) {
@@ -34,10 +36,10 @@ module.exports = sector.Component.define({
       }
     }
     this.subscribe(this.navigateRequestTopic, this.handleNavigateRequest);
-    this.subscribe(this.backRequestTopic, this.handleBackRequest);
-    this.subscribe(this.forwardRequestTopic, this.handleForwardRequest);
     this.subscribe(this.protectRouteRequestTopic, this.handleProtectRouteRequest);
     this.subscribe(this.routeChangeConfirmedTopic, this.handleRouteChangeConfirmed);
+    this.subscribe(this.reloadRouteRequestTopic, this.handleReloadRequest);
+    this.subscribe(this.pushHistoryRequestTopic, this.handlePushHistory);
     this.listenTo(window, 'hashchange', this.handleHashChange);
     this.subscribe(this.uiReadyTopic, function () {
       this.handleHashChange();
@@ -50,8 +52,11 @@ module.exports = sector.Component.define({
     this.routes.push({ topic: topic, re: re, keys: keys });
   },
   getFragment: function () {
+    return this.parseFragment(window.location.href);
+  },
+  parseFragment: function (url) {
     var fragment = '', match;
-    match = window.location.href.match(/#(.*)$/);
+    match = url.match(/#(.*)$/);
     fragment = match ? match[1] : '';
     return fragment;
   },
@@ -76,12 +81,13 @@ module.exports = sector.Component.define({
       }
     }
   },
-  handleHashChange: function () {
+  handleHashChange: function (event) {
     var fragment, route;
     fragment = this.getFragment();
+
+    this.history.unshift(fragment);
     if (this.protectedRouteFragment && fragment !== this.protectedRouteFragment) {
       this.publish(this.confirmRouteChangeRequestTopic, { currentRoute: this.protectedRouteFragment, attemptedRoute: fragment });
-      event.preventDefault();
     } else {
       this.publish(this.routeChangedTopic, { path: fragment || '/' });
       route = this.lookupRoute(fragment);
@@ -92,13 +98,16 @@ module.exports = sector.Component.define({
   },
   handleNavigateRequest: function (msg) {
     var path = msg.data ? msg.data : '/';
+    if (msg.ignoreProtected) {
+      this.protectedRouteFragment = null;
+    }
     window.location.href = window.location.href.replace(/#(.*)$/, '') + '#' + path;
   },
-  handleBackRequest: function () {
-    window.history.back();
-  },
-  handleForwardRequest: function () {
-    window.history.forward();
+  handleReloadRequest: function (msg) {
+    var path = msg.data ? msg.data : this.getFragment();
+    this.stopListening(window, 'hashchange');
+    window.location.href = window.location.href.replace(/#(.*)$/, '') + '#' + path;
+    window.location.reload();
   },
   handleProtectRouteRequest: function (msg) {
     var protect = msg.data !== false ? true : false;
