@@ -1,6 +1,6 @@
 {
   "name": "sector-router",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "A router and utilities for the Sector library",
   "main": "lib/index.js",
   "scripts": {
